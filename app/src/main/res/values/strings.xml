@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">TaskFlow</string>
+    <string name="home_placeholder_title">Home</string>
+    <string name="open_task_editor">Open task editor</string>
+    <string name="task_editor_placeholder_title">Task editor</string>
+    <string name="navigate_back">Back</string>
 </resources>
