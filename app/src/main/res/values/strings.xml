@@ -1,7 +1,27 @@
 <resources>
     <string name="app_name">TaskFlow</string>
-    <string name="home_placeholder_title">Home</string>
-    <string name="open_task_editor">Open task editor</string>
     <string name="task_editor_placeholder_title">Task editor</string>
     <string name="navigate_back">Back</string>
+    <string name="settings">Settings</string>
+    <string name="add_task">Add task</string>
+    <string name="home_greeting">Good afternoon</string>
+    <string name="tasks_remaining">You have %1$d tasks remaining</string>
+    <string name="filter_all">All</string>
+    <string name="filter_today">Today</string>
+    <string name="filter_pending">Pending</string>
+    <string name="filter_completed">Completed</string>
+    <string name="no_tasks_for_filter">No tasks match this filter</string>
+    <string name="priority_low">Low</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_high">High</string>
+    <string name="task_android_course_title">Finish Android course</string>
+    <string name="task_android_course_description">Complete StateFlow module</string>
+    <string name="task_android_course_due">Today · 7:00 PM</string>
+    <string name="task_english_title">Practice English</string>
+    <string name="task_english_description">30 minutes speaking practice</string>
+    <string name="task_english_due">Today · 9:00 PM</string>
+    <string name="task_interview_title">Prepare technical interview</string>
+    <string name="task_interview_description">Review MVVM and Coroutines</string>
+    <string name="task_interview_due">Tomorrow · 10:00 AM</string>
+    <string name="task_groceries_title">Buy groceries</string>
 </resources>
