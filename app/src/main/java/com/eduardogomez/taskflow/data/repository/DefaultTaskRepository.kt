@@ -2,9 +2,10 @@ package com.eduardogomez.taskflow.data.repository
 
 import com.eduardogomez.taskflow.data.local.TaskDao
 import com.eduardogomez.taskflow.data.local.TaskEntity
+import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 
-class DefaultTaskRepository(
+class DefaultTaskRepository @Inject constructor(
     private val taskDao: TaskDao,
 ) : TaskRepository {
     override fun observeTasks(): Flow<List<TaskEntity>> = taskDao.observeAll()
