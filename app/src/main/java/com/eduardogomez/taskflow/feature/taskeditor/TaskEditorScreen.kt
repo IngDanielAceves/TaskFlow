@@ -36,8 +36,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -45,11 +43,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,7 +65,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardogomez.taskflow.R
+import com.eduardogomez.taskflow.data.local.TaskPriority
 import com.eduardogomez.taskflow.ui.theme.PriorityHighContainer
 import com.eduardogomez.taskflow.ui.theme.PriorityHighContainerDark
 import com.eduardogomez.taskflow.ui.theme.PriorityHighContent
@@ -88,28 +88,51 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
-import kotlinx.coroutines.launch
+
+@Composable
+fun TaskEditorRoute(
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: TaskEditorViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(uiState.saveCompleted) {
+        if (uiState.saveCompleted) {
+            viewModel.onSaveCompletedHandled()
+            onNavigateBack()
+        }
+    }
+
+    TaskEditorScreen(
+        uiState = uiState,
+        onTitleChanged = viewModel::onTitleChanged,
+        onDescriptionChanged = viewModel::onDescriptionChanged,
+        onPriorityChanged = viewModel::onPriorityChanged,
+        onDueDateChanged = viewModel::onDueDateChanged,
+        onDueTimeChanged = viewModel::onDueTimeChanged,
+        onCreateTask = viewModel::createTask,
+        onNavigateBack = onNavigateBack,
+        modifier = modifier,
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskEditorScreen(
+    uiState: TaskEditorUiState,
+    onTitleChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
+    onPriorityChanged: (TaskPriority) -> Unit,
+    onDueDateChanged: (Long) -> Unit,
+    onDueTimeChanged: (Int) -> Unit,
+    onCreateTask: () -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var description by rememberSaveable { mutableStateOf("") }
-    var priority by rememberSaveable { mutableStateOf(TaskEditorPriority.MEDIUM) }
-    var dueDateEpochDay by rememberSaveable {
-        mutableLongStateOf(LocalDate.now().toEpochDay())
-    }
-    var dueHour by rememberSaveable { mutableStateOf<Int?>(null) }
-    var dueMinute by rememberSaveable { mutableStateOf<Int?>(null) }
-    var showTitleError by rememberSaveable { mutableStateOf(false) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
 
-    val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
     val descriptionFocusRequester = remember { FocusRequester() }
@@ -129,9 +152,8 @@ fun TaskEditorScreen(
         .pointerInput(focusManager) {
             detectTapGestures { focusManager.clearFocus() }
         }
-    val readyToSaveMessage = stringResource(R.string.task_ready_to_save)
-    val dueDateText = formatDueDate(dueDateEpochDay)
-    val dueTimeText = formatDueTime(dueHour, dueMinute)
+    val dueDateText = formatDueDate(uiState.dueDateEpochDay)
+    val dueTimeText = formatDueTime(uiState.dueTimeMinutes)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -156,7 +178,6 @@ fun TaskEditorScreen(
                 ),
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
@@ -169,22 +190,17 @@ fun TaskEditorScreen(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         ) {
             OutlinedTextField(
-                value = title,
-                onValueChange = { newTitle ->
-                    title = newTitle
-                    if (showTitleError && newTitle.isNotBlank()) {
-                        showTitleError = false
-                    }
-                },
+                value = uiState.title,
+                onValueChange = onTitleChanged,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(text = stringResource(R.string.task_title_label)) },
                 placeholder = { Text(text = stringResource(R.string.task_title_placeholder)) },
-                supportingText = if (showTitleError) {
+                supportingText = if (uiState.titleError) {
                     { Text(text = stringResource(R.string.title_required)) }
                 } else {
                     null
                 },
-                isError = showTitleError,
+                isError = uiState.titleError,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(
@@ -195,8 +211,8 @@ fun TaskEditorScreen(
             Spacer(modifier = focusClearingSpacerModifier)
 
             OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
+                value = uiState.description,
+                onValueChange = onDescriptionChanged,
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(descriptionFocusRequester),
@@ -209,10 +225,10 @@ fun TaskEditorScreen(
             Spacer(modifier = focusClearingSpacerModifier)
 
             PrioritySelector(
-                selectedPriority = priority,
+                selectedPriority = uiState.priority,
                 onPrioritySelected = {
                     focusManager.clearFocus()
-                    priority = it
+                    onPriorityChanged(it)
                 },
             )
 
@@ -243,39 +259,44 @@ fun TaskEditorScreen(
 
             Button(
                 onClick = {
-                    if (title.isBlank()) {
-                        showTitleError = true
-                    } else {
+                    if (uiState.title.isNotBlank()) {
                         focusManager.clearFocus()
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(readyToSaveMessage)
-                        }
                     }
+                    onCreateTask()
                 },
+                enabled = !uiState.isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 52.dp),
             ) {
                 Text(text = stringResource(R.string.create_task))
             }
+
+            if (uiState.saveError) {
+                Text(
+                    text = stringResource(R.string.task_save_error),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
         }
     }
 
     if (showDatePicker) {
         TaskDatePickerDialog(
-            selectedDateEpochDay = dueDateEpochDay,
-            onDateSelected = { dueDateEpochDay = it },
+            selectedDateEpochDay = uiState.dueDateEpochDay,
+            onDateSelected = onDueDateChanged,
             onDismiss = { showDatePicker = false },
         )
     }
 
     if (showTimePicker) {
         TaskTimePickerDialog(
-            initialHour = dueHour,
-            initialMinute = dueMinute,
+            initialHour = uiState.dueTimeMinutes?.div(MINUTES_PER_HOUR),
+            initialMinute = uiState.dueTimeMinutes?.rem(MINUTES_PER_HOUR),
             onTimeSelected = { hour, minute ->
-                dueHour = hour
-                dueMinute = minute
+                onDueTimeChanged(hour * MINUTES_PER_HOUR + minute)
             },
             onDismiss = { showTimePicker = false },
         )
@@ -284,8 +305,8 @@ fun TaskEditorScreen(
 
 @Composable
 private fun PrioritySelector(
-    selectedPriority: TaskEditorPriority,
-    onPrioritySelected: (TaskEditorPriority) -> Unit,
+    selectedPriority: TaskPriority,
+    onPrioritySelected: (TaskPriority) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -303,12 +324,12 @@ private fun PrioritySelector(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TaskEditorPriority.entries.forEach { priority ->
+            TaskPriority.entries.forEach { priority ->
                 val selectedColors = priority.selectedColors(isDarkTheme)
                 FilterChip(
                     selected = selectedPriority == priority,
                     onClick = { onPrioritySelected(priority) },
-                    label = { Text(text = stringResource(priority.labelResId)) },
+                    label = { Text(text = stringResource(priority.labelResId())) },
                     modifier = Modifier.weight(1f),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = selectedColors.container,
@@ -484,24 +505,21 @@ private fun formatDueDate(epochDay: Long): String {
 }
 
 @Composable
-private fun formatDueTime(hour: Int?, minute: Int?): String {
-    if (hour == null || minute == null) {
+private fun formatDueTime(dueTimeMinutes: Int?): String {
+    if (dueTimeMinutes == null) {
         return stringResource(R.string.due_time_not_set)
     }
 
-    return remember(hour, minute) {
-        LocalTime.of(hour, minute).format(
+    return remember(dueTimeMinutes) {
+        LocalTime.of(
+            dueTimeMinutes / MINUTES_PER_HOUR,
+            dueTimeMinutes % MINUTES_PER_HOUR,
+        ).format(
             DateTimeFormatter
                 .ofLocalizedTime(FormatStyle.SHORT)
                 .withLocale(Locale.getDefault()),
         )
     }
-}
-
-private enum class TaskEditorPriority(@param:StringRes val labelResId: Int) {
-    LOW(R.string.priority_low),
-    MEDIUM(R.string.priority_medium),
-    HIGH(R.string.priority_high),
 }
 
 private fun Long.toUtcEpochDay(): Long = Instant
@@ -515,20 +533,29 @@ private data class SelectedPriorityColors(
     val content: androidx.compose.ui.graphics.Color,
 )
 
-private fun TaskEditorPriority.selectedColors(isDarkTheme: Boolean): SelectedPriorityColors =
+@StringRes
+private fun TaskPriority.labelResId(): Int = when (this) {
+    TaskPriority.LOW -> R.string.priority_low
+    TaskPriority.MEDIUM -> R.string.priority_medium
+    TaskPriority.HIGH -> R.string.priority_high
+}
+
+private fun TaskPriority.selectedColors(isDarkTheme: Boolean): SelectedPriorityColors =
     when (this) {
-        TaskEditorPriority.LOW -> SelectedPriorityColors(
+        TaskPriority.LOW -> SelectedPriorityColors(
             container = if (isDarkTheme) PriorityLowContainerDark else PriorityLowContainer,
             content = if (isDarkTheme) PriorityLowContentDark else PriorityLowContent,
         )
 
-        TaskEditorPriority.MEDIUM -> SelectedPriorityColors(
+        TaskPriority.MEDIUM -> SelectedPriorityColors(
             container = if (isDarkTheme) PriorityMediumContainerDark else PriorityMediumContainer,
             content = if (isDarkTheme) PriorityMediumContentDark else PriorityMediumContent,
         )
 
-        TaskEditorPriority.HIGH -> SelectedPriorityColors(
+        TaskPriority.HIGH -> SelectedPriorityColors(
             container = if (isDarkTheme) PriorityHighContainerDark else PriorityHighContainer,
             content = if (isDarkTheme) PriorityHighContentDark else PriorityHighContent,
         )
     }
+
+private const val MINUTES_PER_HOUR = 60

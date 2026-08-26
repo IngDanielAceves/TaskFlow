@@ -28,7 +28,7 @@
     <string name="due_time_label">Due time</string>
     <string name="due_time_not_set">Set time</string>
     <string name="create_task">Create Task</string>
-    <string name="task_ready_to_save">Task ready to save</string>
+    <string name="task_save_error">Unable to save task. Try again.</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
 </resources>

@@ -7,7 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.eduardogomez.taskflow.feature.home.HomeRoute
-import com.eduardogomez.taskflow.feature.taskeditor.TaskEditorScreen
+import com.eduardogomez.taskflow.feature.taskeditor.TaskEditorRoute
 
 @Composable
 fun TaskFlowNavHost(
@@ -28,7 +28,7 @@ fun TaskFlowNavHost(
         }
 
         composable(route = TaskFlowDestination.TASK_EDITOR.route) {
-            TaskEditorScreen(onNavigateBack = navController::navigateUp)
+            TaskEditorRoute(onNavigateBack = navController::navigateUp)
         }
     }
 }
