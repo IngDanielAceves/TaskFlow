@@ -42,6 +42,7 @@ class TaskEditorViewModelTest {
     fun initialState_hasExpectedDefaults() {
         val state = createViewModel(FakeTaskRepository()).uiState.value
 
+        assertEquals(TaskEditorMode.CREATE, state.mode)
         assertEquals("", state.title)
         assertEquals("", state.description)
         assertEquals(TaskPriority.MEDIUM, state.priority)
@@ -54,7 +55,7 @@ class TaskEditorViewModelTest {
     @Test
     fun onTitleChanged_updatesTitleAndClearsValidationWhenValid() {
         val viewModel = createViewModel(FakeTaskRepository())
-        viewModel.createTask()
+        viewModel.saveTask()
         assertTrue(viewModel.uiState.value.titleError)
 
         viewModel.onTitleChanged("Learn StateFlow")
@@ -98,7 +99,7 @@ class TaskEditorViewModelTest {
         val viewModel = createViewModel(repository)
         viewModel.onTitleChanged("   ")
 
-        viewModel.createTask()
+        viewModel.saveTask()
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.titleError)
@@ -115,7 +116,7 @@ class TaskEditorViewModelTest {
         viewModel.onDueDateChanged(todayEpochDay + 1)
         viewModel.onDueTimeChanged(8 * 60 + 15)
 
-        viewModel.createTask()
+        viewModel.saveTask()
         advanceUntilIdle()
 
         assertEquals(
@@ -140,7 +141,7 @@ class TaskEditorViewModelTest {
         viewModel.onTitleChanged("Task without description")
         viewModel.onDescriptionChanged("   ")
 
-        viewModel.createTask()
+        viewModel.saveTask()
         advanceUntilIdle()
 
         assertNull(repository.insertedTasks.single().description)
@@ -151,7 +152,7 @@ class TaskEditorViewModelTest {
         val viewModel = createViewModel(FakeTaskRepository())
         viewModel.onTitleChanged("Created task")
 
-        viewModel.createTask()
+        viewModel.saveTask()
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.saveCompleted)
@@ -166,8 +167,8 @@ class TaskEditorViewModelTest {
         val viewModel = createViewModel(repository)
         viewModel.onTitleChanged("Only once")
 
-        viewModel.createTask()
-        viewModel.createTask()
+        viewModel.saveTask()
+        viewModel.saveTask()
         runCurrent()
 
         assertTrue(viewModel.uiState.value.isSaving)
@@ -188,7 +189,7 @@ class TaskEditorViewModelTest {
         val viewModel = createViewModel(repository)
         viewModel.onTitleChanged("Retry later")
 
-        viewModel.createTask()
+        viewModel.saveTask()
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.isSaving)
@@ -196,19 +197,183 @@ class TaskEditorViewModelTest {
         assertTrue(viewModel.uiState.value.saveError)
     }
 
-    private fun createViewModel(repository: TaskRepository) = TaskEditorViewModel(
+    @Test
+    fun existingTask_loadsAllEditableFields() = runTest(testDispatcher) {
+        val task = existingTask()
+        val viewModel = createViewModel(
+            repository = FakeTaskRepository(initialTasks = listOf(task)),
+            taskId = task.id,
+        )
+
+        advanceUntilIdle()
+        val state = viewModel.uiState.value
+
+        assertEquals(TaskEditorMode.EDIT, state.mode)
+        assertFalse(state.isLoading)
+        assertEquals(task.title, state.title)
+        assertEquals(task.description, state.description)
+        assertEquals(task.priority, state.priority)
+        assertEquals(task.dueDateEpochDay, state.dueDateEpochDay)
+        assertEquals(task.dueTimeMinutes, state.dueTimeMinutes)
+    }
+
+    @Test
+    fun edit_preservesOriginalId() = runTest(testDispatcher) {
+        val task = existingTask()
+        val repository = FakeTaskRepository(initialTasks = listOf(task))
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.onTitleChanged("Updated")
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertEquals(task.id, repository.updatedTasks.single().id)
+    }
+
+    @Test
+    fun edit_preservesOriginalCreatedAtTimestamp() = runTest(testDispatcher) {
+        val task = existingTask()
+        val repository = FakeTaskRepository(initialTasks = listOf(task))
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertEquals(
+            task.createdAtEpochMillis,
+            repository.updatedTasks.single().createdAtEpochMillis,
+        )
+    }
+
+    @Test
+    fun edit_preservesOriginalCompletionState() = runTest(testDispatcher) {
+        val task = existingTask(isCompleted = true)
+        val repository = FakeTaskRepository(initialTasks = listOf(task))
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertTrue(repository.updatedTasks.single().isCompleted)
+    }
+
+    @Test
+    fun edit_usesUpdateAndDoesNotInsert() = runTest(testDispatcher) {
+        val task = existingTask()
+        val repository = FakeTaskRepository(initialTasks = listOf(task))
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.onTitleChanged("Updated title")
+        viewModel.onPriorityChanged(TaskPriority.LOW)
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertTrue(repository.insertedTasks.isEmpty())
+        assertEquals(1, repository.updatedTasks.size)
+        assertEquals("Updated title", repository.updatedTasks.single().title)
+        assertEquals(TaskPriority.LOW, repository.updatedTasks.single().priority)
+    }
+
+    @Test
+    fun successfulUpdate_signalsNavigation() = runTest(testDispatcher) {
+        val task = existingTask()
+        val viewModel = createViewModel(
+            repository = FakeTaskRepository(initialTasks = listOf(task)),
+            taskId = task.id,
+        )
+        advanceUntilIdle()
+
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.saveCompleted)
+    }
+
+    @Test
+    fun failedUpdate_doesNotSignalNavigation() = runTest(testDispatcher) {
+        val task = existingTask()
+        val repository = FakeTaskRepository(
+            initialTasks = listOf(task),
+            updateFailure = IllegalStateException("Database unavailable"),
+        )
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.saveCompleted)
+        assertTrue(viewModel.uiState.value.saveError)
+    }
+
+    @Test
+    fun missingTask_doesNotInsertOrUpdate() = runTest(testDispatcher) {
+        val repository = FakeTaskRepository()
+        val viewModel = createViewModel(repository, taskId = 404)
+        advanceUntilIdle()
+
+        assertEquals(TaskEditorMode.EDIT, viewModel.uiState.value.mode)
+        assertTrue(viewModel.uiState.value.loadError)
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertTrue(repository.insertedTasks.isEmpty())
+        assertTrue(repository.updatedTasks.isEmpty())
+        assertFalse(viewModel.uiState.value.saveCompleted)
+    }
+
+    @Test
+    fun emptyTitleInEditMode_doesNotUpdate() = runTest(testDispatcher) {
+        val task = existingTask()
+        val repository = FakeTaskRepository(initialTasks = listOf(task))
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.onTitleChanged("   ")
+        viewModel.saveTask()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.titleError)
+        assertTrue(repository.updatedTasks.isEmpty())
+    }
+
+    private fun createViewModel(
+        repository: TaskRepository,
+        taskId: Long? = null,
+    ) = TaskEditorViewModel(
         taskRepository = repository,
         currentTimeMillis = { timestamp },
         todayEpochDay = todayEpochDay,
+        taskId = taskId,
+    )
+
+    private fun existingTask(
+        isCompleted: Boolean = false,
+    ) = TaskEntity(
+        id = 42,
+        title = "Original title",
+        description = "Original description",
+        priority = TaskPriority.HIGH,
+        dueDateEpochDay = todayEpochDay + 2,
+        dueTimeMinutes = 10 * 60 + 45,
+        isCompleted = isCompleted,
+        createdAtEpochMillis = 987_654L,
     )
 }
 
 private class FakeTaskRepository(
+    initialTasks: List<TaskEntity> = emptyList(),
     private val insertGate: CompletableDeferred<Unit>? = null,
     private val insertFailure: Exception? = null,
+    private val updateFailure: Exception? = null,
 ) : TaskRepository {
-    private val tasks = MutableStateFlow<List<TaskEntity>>(emptyList())
+    private val tasks = MutableStateFlow(initialTasks)
     val insertedTasks = mutableListOf<TaskEntity>()
+    val updatedTasks = mutableListOf<TaskEntity>()
 
     override fun observeTasks(): Flow<List<TaskEntity>> = tasks
 
@@ -222,7 +387,10 @@ private class FakeTaskRepository(
         return 1L
     }
 
-    override suspend fun updateTask(task: TaskEntity) = Unit
+    override suspend fun updateTask(task: TaskEntity) {
+        updatedTasks += task
+        updateFailure?.let { throw it }
+    }
 
     override suspend fun deleteTask(task: TaskEntity) = Unit
 

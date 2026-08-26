@@ -30,7 +30,8 @@ import com.eduardogomez.taskflow.R
 
 @Composable
 fun HomeRoute(
-    onOpenTaskEditor: () -> Unit,
+    onCreateTask: () -> Unit,
+    onOpenTask: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -40,7 +41,8 @@ fun HomeRoute(
         uiState = uiState,
         onFilterSelected = viewModel::selectFilter,
         onTaskCompletedChange = viewModel::setTaskCompleted,
-        onOpenTaskEditor = onOpenTaskEditor,
+        onCreateTask = onCreateTask,
+        onOpenTask = onOpenTask,
         modifier = modifier,
     )
 }
@@ -51,7 +53,8 @@ fun HomeScreen(
     uiState: HomeUiState,
     onFilterSelected: (HomeFilter) -> Unit,
     onTaskCompletedChange: (Long, Boolean) -> Unit,
-    onOpenTaskEditor: () -> Unit,
+    onCreateTask: () -> Unit,
+    onOpenTask: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -77,7 +80,7 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onOpenTaskEditor) {
+            FloatingActionButton(onClick = onCreateTask) {
                 Icon(
                     painter = painterResource(R.drawable.ic_add_24),
                     contentDescription = stringResource(R.string.add_task),
@@ -134,6 +137,7 @@ fun HomeScreen(
                     ) { task ->
                         TaskCard(
                             task = task,
+                            onClick = { onOpenTask(task.id) },
                             onCompletedChange = { isCompleted ->
                                 onTaskCompletedChange(task.id, isCompleted)
                             },

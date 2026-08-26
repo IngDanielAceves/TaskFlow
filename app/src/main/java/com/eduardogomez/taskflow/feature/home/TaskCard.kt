@@ -33,12 +33,14 @@ import java.time.format.FormatStyle
 @Composable
 internal fun TaskCard(
     task: HomeTaskUiModel,
+    onClick: () -> Unit,
     onCompletedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val dueText = task.dueText()
 
     Card(
+        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .alpha(if (task.isCompleted) 0.62f else 1f),

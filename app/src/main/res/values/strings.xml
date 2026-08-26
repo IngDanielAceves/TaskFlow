@@ -16,6 +16,7 @@
     <string name="priority_medium">Medium</string>
     <string name="priority_high">High</string>
     <string name="new_task_title">New Task</string>
+    <string name="edit_task_title">Edit Task</string>
     <string name="task_title_label">Task title</string>
     <string name="task_title_placeholder">What needs to be done?</string>
     <string name="title_required">Title is required</string>
@@ -28,7 +29,9 @@
     <string name="due_time_label">Due time</string>
     <string name="due_time_not_set">Set time</string>
     <string name="create_task">Create Task</string>
+    <string name="save_changes">Save Changes</string>
     <string name="task_save_error">Unable to save task. Try again.</string>
+    <string name="task_load_error">Task not found.</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
 </resources>

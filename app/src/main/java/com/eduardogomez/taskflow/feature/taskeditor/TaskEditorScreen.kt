@@ -6,6 +6,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -111,7 +113,7 @@ fun TaskEditorRoute(
         onPriorityChanged = viewModel::onPriorityChanged,
         onDueDateChanged = viewModel::onDueDateChanged,
         onDueTimeChanged = viewModel::onDueTimeChanged,
-        onCreateTask = viewModel::createTask,
+        onCreateTask = viewModel::saveTask,
         onNavigateBack = onNavigateBack,
         modifier = modifier,
     )
@@ -161,7 +163,13 @@ fun TaskEditorScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = stringResource(R.string.new_task_title),
+                        text = stringResource(
+                            if (uiState.mode == TaskEditorMode.CREATE) {
+                                R.string.new_task_title
+                            } else {
+                                R.string.edit_task_title
+                            },
+                        ),
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
@@ -180,15 +188,40 @@ fun TaskEditorScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding()
-                .nestedScroll(userScrollConnection)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-        ) {
+        when {
+            uiState.isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            uiState.loadError -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.task_load_error),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            else -> Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .imePadding()
+                    .nestedScroll(userScrollConnection)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+            ) {
             OutlinedTextField(
                 value = uiState.title,
                 onValueChange = onTitleChanged,
@@ -269,7 +302,15 @@ fun TaskEditorScreen(
                     .fillMaxWidth()
                     .heightIn(min = 52.dp),
             ) {
-                Text(text = stringResource(R.string.create_task))
+                Text(
+                    text = stringResource(
+                        if (uiState.mode == TaskEditorMode.CREATE) {
+                            R.string.create_task
+                        } else {
+                            R.string.save_changes
+                        },
+                    ),
+                )
             }
 
             if (uiState.saveError) {
@@ -280,6 +321,7 @@ fun TaskEditorScreen(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
+        }
         }
     }
 
