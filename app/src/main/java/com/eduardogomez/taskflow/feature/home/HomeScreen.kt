@@ -1,6 +1,5 @@
 package com.eduardogomez.taskflow.feature.home
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,31 +19,41 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardogomez.taskflow.R
+
+@Composable
+fun HomeRoute(
+    onOpenTaskEditor: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: HomeViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    HomeScreen(
+        uiState = uiState,
+        onFilterSelected = viewModel::selectFilter,
+        onTaskCompletedChange = viewModel::setTaskCompleted,
+        onOpenTaskEditor = onOpenTaskEditor,
+        modifier = modifier,
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    uiState: HomeUiState,
+    onFilterSelected: (HomeFilter) -> Unit,
+    onTaskCompletedChange: (Long, Boolean) -> Unit,
     onOpenTaskEditor: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val initialTasks = fakeTasks()
-    var tasks by remember(initialTasks) { mutableStateOf(initialTasks) }
-    var selectedFilter by rememberSaveable { mutableStateOf(HomeFilter.ALL) }
-    val pendingTaskCount = tasks.count { task -> !task.completed }
-    val filteredTasks = remember(tasks, selectedFilter) {
-        tasks.filter { task -> selectedFilter.matches(task) }
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -90,43 +99,46 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                HomeHeader(pendingTaskCount = pendingTaskCount)
+                HomeHeader(pendingTaskCount = uiState.pendingCount)
             }
 
             item {
                 FilterRow(
-                    selectedFilter = selectedFilter,
-                    onFilterSelected = { selectedFilter = it },
+                    selectedFilter = uiState.selectedFilter,
+                    onFilterSelected = onFilterSelected,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
-            if (filteredTasks.isEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.no_tasks_for_filter),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 32.dp),
-                    )
+            when {
+                uiState.isLoading -> Unit
+                !uiState.hasTasks -> {
+                    item {
+                        EmptyDatabaseState()
+                    }
                 }
-            } else {
-                items(
-                    items = filteredTasks,
-                    key = HomeTaskUiModel::id,
-                ) { task ->
-                    TaskCard(
-                        task = task,
-                        onCompletedChange = { completed ->
-                            tasks = tasks.map { currentTask ->
-                                if (currentTask.id == task.id) {
-                                    currentTask.copy(completed = completed)
-                                } else {
-                                    currentTask
-                                }
-                            }
-                        },
-                    )
+                uiState.tasks.isEmpty() -> {
+                    item {
+                        Text(
+                            text = stringResource(R.string.no_tasks_found),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 32.dp),
+                        )
+                    }
+                }
+                else -> {
+                    items(
+                        items = uiState.tasks,
+                        key = HomeTaskUiModel::id,
+                    ) { task ->
+                        TaskCard(
+                            task = task,
+                            onCompletedChange = { isCompleted ->
+                                onTaskCompletedChange(task.id, isCompleted)
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -177,72 +189,20 @@ private fun FilterRow(
 }
 
 @Composable
-private fun fakeTasks(): List<HomeTaskUiModel> = listOf(
-    HomeTaskUiModel(
-        id = 1,
-        title = stringResource(R.string.task_android_course_title),
-        description = stringResource(R.string.task_android_course_description),
-        priority = TaskPriority.HIGH,
-        due = stringResource(R.string.task_android_course_due),
-        dueToday = true,
-        completed = false,
-    ),
-    HomeTaskUiModel(
-        id = 2,
-        title = stringResource(R.string.task_english_title),
-        description = stringResource(R.string.task_english_description),
-        priority = TaskPriority.MEDIUM,
-        due = stringResource(R.string.task_english_due),
-        dueToday = true,
-        completed = false,
-    ),
-    HomeTaskUiModel(
-        id = 3,
-        title = stringResource(R.string.task_interview_title),
-        description = stringResource(R.string.task_interview_description),
-        priority = TaskPriority.HIGH,
-        due = stringResource(R.string.task_interview_due),
-        dueToday = false,
-        completed = false,
-    ),
-    HomeTaskUiModel(
-        id = 4,
-        title = stringResource(R.string.task_groceries_title),
-        description = null,
-        priority = TaskPriority.LOW,
-        due = null,
-        dueToday = false,
-        completed = true,
-    ),
-)
-
-internal data class HomeTaskUiModel(
-    val id: Int,
-    val title: String,
-    val description: String?,
-    val priority: TaskPriority,
-    val due: String?,
-    val dueToday: Boolean,
-    val completed: Boolean,
-)
-
-internal enum class TaskPriority(@param:StringRes val labelResId: Int) {
-    LOW(R.string.priority_low),
-    MEDIUM(R.string.priority_medium),
-    HIGH(R.string.priority_high),
-}
-
-private enum class HomeFilter(@param:StringRes val labelResId: Int) {
-    ALL(R.string.filter_all),
-    TODAY(R.string.filter_today),
-    PENDING(R.string.filter_pending),
-    COMPLETED(R.string.filter_completed),
-    ;
-
-    fun matches(task: HomeTaskUiModel): Boolean = when (this) {
-        ALL -> true
-        TODAY -> task.dueToday
-        PENDING -> !task.completed
-        COMPLETED -> task.completed
+private fun EmptyDatabaseState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(vertical = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.no_tasks_yet),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = stringResource(R.string.create_first_task_message),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

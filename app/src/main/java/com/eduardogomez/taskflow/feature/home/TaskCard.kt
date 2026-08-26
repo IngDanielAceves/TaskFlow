@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -22,6 +23,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.eduardogomez.taskflow.R
+import com.eduardogomez.taskflow.data.local.TaskPriority
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 internal fun TaskCard(
@@ -29,10 +36,12 @@ internal fun TaskCard(
     onCompletedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val dueText = task.dueText()
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .alpha(if (task.completed) 0.62f else 1f),
+            .alpha(if (task.isCompleted) 0.62f else 1f),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -49,7 +58,7 @@ internal fun TaskCard(
             verticalAlignment = Alignment.Top,
         ) {
             Checkbox(
-                checked = task.completed,
+                checked = task.isCompleted,
                 onCheckedChange = onCompletedChange,
             )
             Spacer(modifier = Modifier.width(4.dp))
@@ -63,7 +72,7 @@ internal fun TaskCard(
                     text = task.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    textDecoration = if (task.completed) {
+                    textDecoration = if (task.isCompleted) {
                         TextDecoration.LineThrough
                     } else {
                         TextDecoration.None
@@ -84,7 +93,7 @@ internal fun TaskCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     PriorityBadge(priority = task.priority)
-                    task.due?.let { due ->
+                    dueText?.let { due ->
                         Text(
                             text = due,
                             style = MaterialTheme.typography.labelMedium,
@@ -98,10 +107,36 @@ internal fun TaskCard(
 }
 
 @Composable
+private fun HomeTaskUiModel.dueText(): String? {
+    val today = LocalDate.now()
+    val dateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
+    val timeFormatter = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
+    val dateText = dueDateEpochDay?.let { epochDay ->
+        when (val date = LocalDate.ofEpochDay(epochDay)) {
+            today -> stringResource(R.string.due_date_today)
+            today.plusDays(1) -> stringResource(R.string.due_date_tomorrow)
+            else -> date.format(dateFormatter)
+        }
+    }
+    val timeText = dueTimeMinutes?.let { minutes ->
+        LocalTime.of(minutes / 60, minutes % 60).format(timeFormatter)
+    }
+
+    return listOfNotNull(dateText, timeText)
+        .joinToString(separator = " · ")
+        .ifEmpty { null }
+}
+
+@Composable
 private fun PriorityBadge(
     priority: TaskPriority,
     modifier: Modifier = Modifier,
 ) {
+    val labelResId = when (priority) {
+        TaskPriority.LOW -> R.string.priority_low
+        TaskPriority.MEDIUM -> R.string.priority_medium
+        TaskPriority.HIGH -> R.string.priority_high
+    }
     val containerColor = when (priority) {
         TaskPriority.HIGH -> MaterialTheme.colorScheme.errorContainer
         TaskPriority.MEDIUM -> MaterialTheme.colorScheme.tertiaryContainer
@@ -120,7 +155,7 @@ private fun PriorityBadge(
         contentColor = contentColor,
     ) {
         Text(
-            text = stringResource(priority.labelResId),
+            text = stringResource(labelResId),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
