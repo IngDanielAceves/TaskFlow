@@ -171,6 +171,7 @@ fun TaskEditorScreen(
         }
     val dueDateText = formatDueDate(uiState.dueDateEpochDay)
     val dueTimeText = formatDueTime(uiState.dueTimeMinutes)
+    val isFormEnabled = !uiState.isSaving && !uiState.isDeleting
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -243,140 +244,146 @@ fun TaskEditorScreen(
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp, vertical = 16.dp),
             ) {
-            OutlinedTextField(
-                value = uiState.title,
-                onValueChange = onTitleChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(text = stringResource(R.string.task_title_label)) },
-                placeholder = { Text(text = stringResource(R.string.task_title_placeholder)) },
-                supportingText = if (uiState.titleError) {
-                    { Text(text = stringResource(R.string.title_required)) }
-                } else {
-                    null
-                },
-                isError = uiState.titleError,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(
-                    onNext = { descriptionFocusRequester.requestFocus() },
-                ),
-            )
-
-            Spacer(modifier = focusClearingSpacerModifier)
-
-            OutlinedTextField(
-                value = uiState.description,
-                onValueChange = onDescriptionChanged,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(descriptionFocusRequester),
-                label = { Text(text = stringResource(R.string.description_label)) },
-                placeholder = { Text(text = stringResource(R.string.description_placeholder)) },
-                minLines = 3,
-                maxLines = 5,
-            )
-
-            Spacer(modifier = focusClearingSpacerModifier)
-
-            PrioritySelector(
-                selectedPriority = uiState.priority,
-                onPrioritySelected = {
-                    focusManager.clearFocus()
-                    onPriorityChanged(it)
-                },
-            )
-
-            Spacer(modifier = focusClearingSpacerModifier)
-
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SelectionRow(
-                    iconResId = R.drawable.ic_calendar_24,
-                    labelResId = R.string.due_date_label,
-                    value = dueDateText,
-                    onClick = {
-                        focusManager.clearFocus()
-                        showDatePicker = true
+                OutlinedTextField(
+                    value = uiState.title,
+                    onValueChange = onTitleChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = isFormEnabled,
+                    label = { Text(text = stringResource(R.string.task_title_label)) },
+                    placeholder = { Text(text = stringResource(R.string.task_title_placeholder)) },
+                    supportingText = if (uiState.titleError) {
+                        { Text(text = stringResource(R.string.title_required)) }
+                    } else {
+                        null
                     },
-                )
-                SelectionRow(
-                    iconResId = R.drawable.ic_clock_24,
-                    labelResId = R.string.due_time_label,
-                    value = dueTimeText,
-                    onClick = {
-                        focusManager.clearFocus()
-                        showTimePicker = true
-                    },
-                )
-                if (uiState.dueTimeMinutes != null) {
-                    TextButton(
-                        onClick = {
-                            focusManager.clearFocus()
-                            onDueTimeCleared()
-                        },
-                        modifier = Modifier.align(Alignment.End),
-                    ) {
-                        Text(text = stringResource(R.string.clear_time))
-                    }
-                }
-            }
-
-            Spacer(modifier = focusClearingSpacerModifier)
-
-            Button(
-                onClick = {
-                    if (uiState.title.isNotBlank()) {
-                        focusManager.clearFocus()
-                    }
-                    onSaveTask()
-                },
-                enabled = !uiState.isSaving && !uiState.isDeleting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 52.dp),
-            ) {
-                Text(
-                    text = stringResource(
-                        if (uiState.mode == TaskEditorMode.CREATE) {
-                            R.string.create_task
-                        } else {
-                            R.string.save_changes
-                        },
+                    isError = uiState.titleError,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { descriptionFocusRequester.requestFocus() },
                     ),
                 )
-            }
 
-            if (uiState.saveError) {
-                Text(
-                    text = stringResource(R.string.task_save_error),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-            if (uiState.mode == TaskEditorMode.EDIT) {
-                TextButton(
-                    onClick = onDeleteRequested,
-                    enabled = !uiState.isSaving && !uiState.isDeleting,
+                Spacer(modifier = focusClearingSpacerModifier)
+
+                OutlinedTextField(
+                    value = uiState.description,
+                    onValueChange = onDescriptionChanged,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .heightIn(min = 48.dp),
+                        .focusRequester(descriptionFocusRequester),
+                    enabled = isFormEnabled,
+                    label = { Text(text = stringResource(R.string.description_label)) },
+                    placeholder = { Text(text = stringResource(R.string.description_placeholder)) },
+                    minLines = 3,
+                    maxLines = 5,
+                )
+
+                Spacer(modifier = focusClearingSpacerModifier)
+
+                PrioritySelector(
+                    selectedPriority = uiState.priority,
+                    enabled = isFormEnabled,
+                    onPrioritySelected = {
+                        focusManager.clearFocus()
+                        onPriorityChanged(it)
+                    },
+                )
+
+                Spacer(modifier = focusClearingSpacerModifier)
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SelectionRow(
+                        iconResId = R.drawable.ic_calendar_24,
+                        labelResId = R.string.due_date_label,
+                        value = dueDateText,
+                        onClick = {
+                            focusManager.clearFocus()
+                            showDatePicker = true
+                        },
+                        enabled = isFormEnabled,
+                    )
+                    SelectionRow(
+                        iconResId = R.drawable.ic_clock_24,
+                        labelResId = R.string.due_time_label,
+                        value = dueTimeText,
+                        onClick = {
+                            focusManager.clearFocus()
+                            showTimePicker = true
+                        },
+                        enabled = isFormEnabled,
+                    )
+                    if (uiState.dueTimeMinutes != null) {
+                        TextButton(
+                            onClick = {
+                                focusManager.clearFocus()
+                                onDueTimeCleared()
+                            },
+                            enabled = isFormEnabled,
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text(text = stringResource(R.string.clear_time))
+                        }
+                    }
+                }
+
+                Spacer(modifier = focusClearingSpacerModifier)
+
+                Button(
+                    onClick = {
+                        if (uiState.title.isNotBlank()) {
+                            focusManager.clearFocus()
+                        }
+                        onSaveTask()
+                    },
+                    enabled = isFormEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp),
                 ) {
                     Text(
-                        text = stringResource(R.string.delete_task),
-                        color = MaterialTheme.colorScheme.error,
+                        text = stringResource(
+                            if (uiState.mode == TaskEditorMode.CREATE) {
+                                R.string.create_task
+                            } else {
+                                R.string.save_changes
+                            },
+                        ),
                     )
                 }
 
-                if (uiState.deleteError) {
+                if (uiState.saveError) {
                     Text(
-                        text = stringResource(R.string.task_delete_error),
+                        text = stringResource(R.string.task_save_error),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
+                if (uiState.mode == TaskEditorMode.EDIT) {
+                    TextButton(
+                        onClick = onDeleteRequested,
+                        enabled = isFormEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .heightIn(min = 48.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.delete_task),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+
+                    if (uiState.deleteError) {
+                        Text(
+                            text = stringResource(R.string.task_delete_error),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
-        }
         }
     }
 
@@ -424,6 +431,7 @@ fun TaskEditorScreen(
 @Composable
 private fun PrioritySelector(
     selectedPriority: TaskPriority,
+    enabled: Boolean,
     onPrioritySelected: (TaskPriority) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -447,6 +455,7 @@ private fun PrioritySelector(
                 FilterChip(
                     selected = selectedPriority == priority,
                     onClick = { onPrioritySelected(priority) },
+                    enabled = enabled,
                     label = { Text(text = stringResource(priority.labelResId())) },
                     modifier = Modifier.weight(1f),
                     colors = FilterChipDefaults.filterChipColors(
@@ -465,10 +474,12 @@ private fun SelectionRow(
     @StringRes labelResId: Int,
     value: String,
     onClick: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Card(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(

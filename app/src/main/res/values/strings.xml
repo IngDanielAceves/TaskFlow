@@ -2,7 +2,7 @@
     <string name="app_name">TaskFlow</string>
     <string name="navigate_back">Back</string>
     <string name="add_task">Add task</string>
-    <string name="home_greeting">Good afternoon</string>
+    <string name="home_greeting">Your tasks</string>
     <plurals name="tasks_remaining">
         <item quantity="one">You have %1$d task remaining</item>
         <item quantity="other">You have %1$d tasks remaining</item>

@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 class TaskEditorViewModel internal constructor(
     private val taskRepository: TaskRepository,
     private val currentTimeMillis: () -> Long,
-    todayEpochDay: Long,
+    private val todayEpochDay: Long,
     taskIdArgument: String?,
 ) : ViewModel() {
     @Inject
@@ -77,12 +77,16 @@ class TaskEditorViewModel internal constructor(
     }
 
     fun onDueDateChanged(dueDateEpochDay: Long) {
+        if (dueDateEpochDay < todayEpochDay) return
+
         _uiState.update { state ->
             state.copy(dueDateEpochDay = dueDateEpochDay, saveError = false)
         }
     }
 
     fun onDueTimeChanged(dueTimeMinutes: Int) {
+        if (dueTimeMinutes !in 0 until MINUTES_PER_DAY) return
+
         _uiState.update { state ->
             state.copy(dueTimeMinutes = dueTimeMinutes, saveError = false)
         }
@@ -256,3 +260,5 @@ class TaskEditorViewModel internal constructor(
         }
     }
 }
+
+private const val MINUTES_PER_DAY = 24 * 60

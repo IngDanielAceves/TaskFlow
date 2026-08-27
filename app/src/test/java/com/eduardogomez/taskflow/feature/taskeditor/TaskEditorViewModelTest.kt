@@ -97,6 +97,26 @@ class TaskEditorViewModelTest {
     }
 
     @Test
+    fun pastDueDate_isIgnored() {
+        val viewModel = createViewModel(FakeTaskRepository())
+
+        viewModel.onDueDateChanged(todayEpochDay - 1)
+
+        assertEquals(todayEpochDay, viewModel.uiState.value.dueDateEpochDay)
+    }
+
+    @Test
+    fun dueTimeOutsideValidRange_isIgnored() {
+        val viewModel = createViewModel(FakeTaskRepository())
+        viewModel.onDueTimeChanged(9 * 60)
+
+        viewModel.onDueTimeChanged(-1)
+        viewModel.onDueTimeChanged(24 * 60)
+
+        assertEquals(9 * 60, viewModel.uiState.value.dueTimeMinutes)
+    }
+
+    @Test
     fun dueTimeCanBeClearedAfterBeingSet() {
         val viewModel = createViewModel(FakeTaskRepository())
         viewModel.onDueTimeChanged(9 * 60 + 30)

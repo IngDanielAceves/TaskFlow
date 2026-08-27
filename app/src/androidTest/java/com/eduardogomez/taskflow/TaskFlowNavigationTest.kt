@@ -35,59 +35,87 @@ class TaskFlowNavigationTest {
         val taskTitle = "Navigation test ${System.nanoTime()}"
         createTask(taskTitle)
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasText(taskTitle)).fetchSemanticsNodes().isNotEmpty()
+        try {
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                nodeExists(taskTitle)
+            }
+            composeRule.onNodeWithText(taskTitle).performScrollTo().performClick()
+
+            composeRule
+                .onNodeWithText(composeRule.activity.getString(R.string.edit_task_title))
+                .assertIsDisplayed()
+            composeRule
+                .onNodeWithText(composeRule.activity.getString(R.string.delete_task))
+                .performScrollTo()
+                .performClick()
+            composeRule
+                .onNodeWithText(composeRule.activity.getString(R.string.delete_task_dialog_title))
+                .assertIsDisplayed()
+
+            composeRule
+                .onNodeWithText(composeRule.activity.getString(R.string.action_cancel))
+                .performClick()
+
+            composeRule
+                .onNodeWithText(composeRule.activity.getString(R.string.edit_task_title))
+                .assertIsDisplayed()
+            composeRule.onNodeWithText(taskTitle).assertIsDisplayed()
+        } finally {
+            deleteTaskIfPresent(taskTitle)
         }
-        composeRule.onNodeWithText(taskTitle).performScrollTo().performClick()
-
-        composeRule
-            .onNodeWithText(composeRule.activity.getString(R.string.edit_task_title))
-            .assertIsDisplayed()
-        composeRule
-            .onNodeWithText(composeRule.activity.getString(R.string.delete_task))
-            .performScrollTo()
-            .performClick()
-        composeRule
-            .onNodeWithText(composeRule.activity.getString(R.string.delete_task_dialog_title))
-            .assertIsDisplayed()
-
-        composeRule
-            .onNodeWithText(composeRule.activity.getString(R.string.action_cancel))
-            .performClick()
-
-        composeRule
-            .onNodeWithText(composeRule.activity.getString(R.string.edit_task_title))
-            .assertIsDisplayed()
-        composeRule.onNodeWithText(taskTitle).assertIsDisplayed()
-
-        deleteTaskAndWaitForHome(taskTitle)
     }
 
     private fun createTask(title: String) {
         composeRule
             .onNodeWithContentDescription(composeRule.activity.getString(R.string.add_task))
             .performClick()
-        composeRule.onAllNodes(hasSetTextAction())[0].performTextInput(title)
+        composeRule
+            .onNode(
+                hasText(composeRule.activity.getString(R.string.task_title_label)) and
+                    hasSetTextAction(),
+            )
+            .performTextInput(title)
         composeRule
             .onNodeWithText(composeRule.activity.getString(R.string.create_task))
             .performScrollTo()
             .performClick()
     }
 
-    private fun deleteTaskAndWaitForHome(title: String) {
-        composeRule
-            .onNodeWithText(composeRule.activity.getString(R.string.delete_task))
-            .performScrollTo()
-            .performClick()
+    private fun deleteTaskIfPresent(title: String) {
+        val deleteTask = composeRule.activity.getString(R.string.delete_task)
+        val deleteDialogTitle = composeRule.activity.getString(R.string.delete_task_dialog_title)
+
+        when {
+            nodeExists(deleteDialogTitle) -> Unit
+            nodeExists(deleteTask) -> composeRule
+                .onNodeWithText(deleteTask)
+                .performScrollTo()
+                .performClick()
+            nodeExists(title) -> {
+                composeRule.onNodeWithText(title).performScrollTo().performClick()
+                composeRule.waitUntil(timeoutMillis = 5_000) {
+                    nodeExists(deleteTask)
+                }
+                composeRule
+                    .onNodeWithText(deleteTask)
+                    .performScrollTo()
+                    .performClick()
+            }
+            else -> return
+        }
+
         composeRule
             .onNodeWithText(composeRule.activity.getString(R.string.action_delete))
             .performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasText(title)).fetchSemanticsNodes().isEmpty()
+            !nodeExists(title)
         }
         composeRule
             .onNodeWithContentDescription(composeRule.activity.getString(R.string.add_task))
             .assertIsDisplayed()
     }
+
+    private fun nodeExists(text: String): Boolean =
+        composeRule.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 }
