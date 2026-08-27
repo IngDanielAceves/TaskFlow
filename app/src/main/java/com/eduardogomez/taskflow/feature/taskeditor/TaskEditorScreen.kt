@@ -71,18 +71,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardogomez.taskflow.R
 import com.eduardogomez.taskflow.data.local.TaskPriority
-import com.eduardogomez.taskflow.ui.theme.PriorityHighContainer
-import com.eduardogomez.taskflow.ui.theme.PriorityHighContainerDark
-import com.eduardogomez.taskflow.ui.theme.PriorityHighContent
-import com.eduardogomez.taskflow.ui.theme.PriorityHighContentDark
-import com.eduardogomez.taskflow.ui.theme.PriorityLowContainer
-import com.eduardogomez.taskflow.ui.theme.PriorityLowContainerDark
-import com.eduardogomez.taskflow.ui.theme.PriorityLowContent
-import com.eduardogomez.taskflow.ui.theme.PriorityLowContentDark
-import com.eduardogomez.taskflow.ui.theme.PriorityMediumContainer
-import com.eduardogomez.taskflow.ui.theme.PriorityMediumContainerDark
-import com.eduardogomez.taskflow.ui.theme.PriorityMediumContent
-import com.eduardogomez.taskflow.ui.theme.PriorityMediumContentDark
+import com.eduardogomez.taskflow.ui.theme.priorityColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -451,7 +440,7 @@ private fun PrioritySelector(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TaskPriority.entries.forEach { priority ->
-                val selectedColors = priority.selectedColors(isDarkTheme)
+                val selectedColors = priority.priorityColors(isDarkTheme)
                 FilterChip(
                     selected = selectedPriority == priority,
                     onClick = { onPrioritySelected(priority) },
@@ -657,34 +646,11 @@ private fun Long.toUtcEpochDay(): Long = Instant
     .toLocalDate()
     .toEpochDay()
 
-private data class SelectedPriorityColors(
-    val container: androidx.compose.ui.graphics.Color,
-    val content: androidx.compose.ui.graphics.Color,
-)
-
 @StringRes
 private fun TaskPriority.labelResId(): Int = when (this) {
     TaskPriority.LOW -> R.string.priority_low
     TaskPriority.MEDIUM -> R.string.priority_medium
     TaskPriority.HIGH -> R.string.priority_high
 }
-
-private fun TaskPriority.selectedColors(isDarkTheme: Boolean): SelectedPriorityColors =
-    when (this) {
-        TaskPriority.LOW -> SelectedPriorityColors(
-            container = if (isDarkTheme) PriorityLowContainerDark else PriorityLowContainer,
-            content = if (isDarkTheme) PriorityLowContentDark else PriorityLowContent,
-        )
-
-        TaskPriority.MEDIUM -> SelectedPriorityColors(
-            container = if (isDarkTheme) PriorityMediumContainerDark else PriorityMediumContainer,
-            content = if (isDarkTheme) PriorityMediumContentDark else PriorityMediumContent,
-        )
-
-        TaskPriority.HIGH -> SelectedPriorityColors(
-            container = if (isDarkTheme) PriorityHighContainerDark else PriorityHighContainer,
-            content = if (isDarkTheme) PriorityHighContentDark else PriorityHighContent,
-        )
-    }
 
 private const val MINUTES_PER_HOUR = 60

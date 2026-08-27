@@ -1,5 +1,6 @@
 package com.eduardogomez.taskflow.feature.home
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.eduardogomez.taskflow.R
 import com.eduardogomez.taskflow.data.local.TaskPriority
+import com.eduardogomez.taskflow.ui.theme.priorityColors
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -134,27 +136,18 @@ private fun PriorityBadge(
     priority: TaskPriority,
     modifier: Modifier = Modifier,
 ) {
+    val colors = priority.priorityColors(isSystemInDarkTheme())
     val labelResId = when (priority) {
         TaskPriority.LOW -> R.string.priority_low
         TaskPriority.MEDIUM -> R.string.priority_medium
         TaskPriority.HIGH -> R.string.priority_high
     }
-    val containerColor = when (priority) {
-        TaskPriority.HIGH -> MaterialTheme.colorScheme.errorContainer
-        TaskPriority.MEDIUM -> MaterialTheme.colorScheme.tertiaryContainer
-        TaskPriority.LOW -> MaterialTheme.colorScheme.secondaryContainer
-    }
-    val contentColor = when (priority) {
-        TaskPriority.HIGH -> MaterialTheme.colorScheme.onErrorContainer
-        TaskPriority.MEDIUM -> MaterialTheme.colorScheme.onTertiaryContainer
-        TaskPriority.LOW -> MaterialTheme.colorScheme.onSecondaryContainer
-    }
 
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(8.dp),
-        color = containerColor,
-        contentColor = contentColor,
+        color = colors.container,
+        contentColor = colors.content,
     ) {
         Text(
             text = stringResource(labelResId),

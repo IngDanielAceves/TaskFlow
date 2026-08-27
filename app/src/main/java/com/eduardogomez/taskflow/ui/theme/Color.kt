@@ -1,6 +1,7 @@
 package com.eduardogomez.taskflow.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import com.eduardogomez.taskflow.data.local.TaskPriority
 
 val IndigoPrimary = Color(0xFF4F46E5)
 val IndigoOnPrimary = Color(0xFFFFFFFF)
@@ -30,3 +31,26 @@ val PriorityMediumContainerDark = Color(0xFF4A3515)
 val PriorityMediumContentDark = Color(0xFFFDE68A)
 val PriorityHighContainerDark = Color(0xFF512428)
 val PriorityHighContentDark = Color(0xFFFECACA)
+
+internal data class TaskPriorityColors(
+    val container: Color,
+    val content: Color,
+)
+
+internal fun TaskPriority.priorityColors(isDarkTheme: Boolean): TaskPriorityColors =
+    when (this) {
+        TaskPriority.LOW -> TaskPriorityColors(
+            container = if (isDarkTheme) PriorityLowContainerDark else PriorityLowContainer,
+            content = if (isDarkTheme) PriorityLowContentDark else PriorityLowContent,
+        )
+
+        TaskPriority.MEDIUM -> TaskPriorityColors(
+            container = if (isDarkTheme) PriorityMediumContainerDark else PriorityMediumContainer,
+            content = if (isDarkTheme) PriorityMediumContentDark else PriorityMediumContent,
+        )
+
+        TaskPriority.HIGH -> TaskPriorityColors(
+            container = if (isDarkTheme) PriorityHighContainerDark else PriorityHighContainer,
+            content = if (isDarkTheme) PriorityHighContentDark else PriorityHighContent,
+        )
+    }
