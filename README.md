@@ -318,7 +318,7 @@ Android SDK compatible with the project's configured compileSdk
 
 1. Clone the repository
 
-git clone YOUR_REPOSITORY_URL
+git clone https://github.com/IngDanielAceves/TaskFlow.git
 cd TaskFlow
 
 2. Open the project
