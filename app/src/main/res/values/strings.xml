@@ -1,10 +1,13 @@
 <resources>
     <string name="app_name">TaskFlow</string>
     <string name="navigate_back">Back</string>
-    <string name="settings">Settings</string>
     <string name="add_task">Add task</string>
     <string name="home_greeting">Good afternoon</string>
-    <string name="tasks_remaining">You have %1$d tasks remaining</string>
+    <plurals name="tasks_remaining">
+        <item quantity="one">You have %1$d task remaining</item>
+        <item quantity="other">You have %1$d tasks remaining</item>
+    </plurals>
+    <string name="task_completion_error">Unable to update task. Try again.</string>
     <string name="filter_all">All</string>
     <string name="filter_today">Today</string>
     <string name="filter_pending">Pending</string>
@@ -28,10 +31,12 @@
     <string name="due_date_tomorrow">Tomorrow</string>
     <string name="due_time_label">Due time</string>
     <string name="due_time_not_set">Set time</string>
+    <string name="clear_time">Clear time</string>
     <string name="create_task">Create Task</string>
     <string name="save_changes">Save Changes</string>
     <string name="task_save_error">Unable to save task. Try again.</string>
     <string name="task_load_error">Task not found.</string>
+    <string name="task_load_failed">Couldn\'t load task.</string>
     <string name="delete_task">Delete Task</string>
     <string name="delete_task_dialog_title">Delete task?</string>
     <string name="delete_task_dialog_message">This action cannot be undone.</string>

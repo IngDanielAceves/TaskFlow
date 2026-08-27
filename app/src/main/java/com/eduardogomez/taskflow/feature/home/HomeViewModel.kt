@@ -7,6 +7,7 @@ import com.eduardogomez.taskflow.data.repository.TaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,11 +20,13 @@ class HomeViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
 ) : ViewModel() {
     private val selectedFilter = MutableStateFlow(HomeFilter.ALL)
+    private val completionError = MutableStateFlow(false)
 
     val uiState: StateFlow<HomeUiState> = combine(
         taskRepository.observeTasks(),
         selectedFilter,
-    ) { tasks, filter ->
+        completionError,
+    ) { tasks, filter, hasCompletionError ->
         val todayEpochDay = LocalDate.now().toEpochDay()
         val visibleTasks = tasks.filter { task -> filter.matches(task, todayEpochDay) }
 
@@ -33,6 +36,7 @@ class HomeViewModel @Inject constructor(
             pendingCount = tasks.count { task -> !task.isCompleted },
             hasTasks = tasks.isNotEmpty(),
             isLoading = false,
+            completionError = hasCompletionError,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -45,9 +49,20 @@ class HomeViewModel @Inject constructor(
     }
 
     fun setTaskCompleted(id: Long, isCompleted: Boolean) {
+        completionError.value = false
         viewModelScope.launch {
-            taskRepository.setTaskCompleted(id, isCompleted)
+            try {
+                taskRepository.setTaskCompleted(id, isCompleted)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (_: Exception) {
+                completionError.value = true
+            }
         }
+    }
+
+    fun onCompletionErrorHandled() {
+        completionError.value = false
     }
 }
 

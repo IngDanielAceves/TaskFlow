@@ -14,13 +14,18 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +41,15 @@ fun HomeRoute(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val completionErrorMessage = stringResource(R.string.task_completion_error)
+
+    LaunchedEffect(uiState.completionError) {
+        if (uiState.completionError) {
+            snackbarHostState.showSnackbar(completionErrorMessage)
+            viewModel.onCompletionErrorHandled()
+        }
+    }
 
     HomeScreen(
         uiState = uiState,
@@ -43,6 +57,7 @@ fun HomeRoute(
         onTaskCompletedChange = viewModel::setTaskCompleted,
         onCreateTask = onCreateTask,
         onOpenTask = onOpenTask,
+        snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
 }
@@ -55,6 +70,7 @@ fun HomeScreen(
     onTaskCompletedChange: (Long, Boolean) -> Unit,
     onCreateTask: () -> Unit,
     onOpenTask: (Long) -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -65,13 +81,6 @@ fun HomeScreen(
                     Text(
                         text = stringResource(R.string.app_name),
                         fontWeight = FontWeight.Bold,
-                    )
-                },
-                actions = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_settings_24),
-                        contentDescription = stringResource(R.string.settings),
-                        modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -87,6 +96,7 @@ fun HomeScreen(
                 )
             }
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         LazyColumn(
@@ -161,7 +171,11 @@ private fun HomeHeader(
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = stringResource(R.string.tasks_remaining, pendingTaskCount),
+            text = pluralStringResource(
+                R.plurals.tasks_remaining,
+                pendingTaskCount,
+                pendingTaskCount,
+            ),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),

@@ -97,6 +97,16 @@ class TaskEditorViewModelTest {
     }
 
     @Test
+    fun dueTimeCanBeClearedAfterBeingSet() {
+        val viewModel = createViewModel(FakeTaskRepository())
+        viewModel.onDueTimeChanged(9 * 60 + 30)
+
+        viewModel.onDueTimeCleared()
+
+        assertNull(viewModel.uiState.value.dueTimeMinutes)
+    }
+
+    @Test
     fun emptyTitle_doesNotInsert() = runTest(testDispatcher) {
         val repository = FakeTaskRepository()
         val viewModel = createViewModel(repository)
@@ -320,13 +330,38 @@ class TaskEditorViewModelTest {
         advanceUntilIdle()
 
         assertEquals(TaskEditorMode.EDIT, viewModel.uiState.value.mode)
-        assertTrue(viewModel.uiState.value.loadError)
+        assertEquals(TaskEditorLoadError.NOT_FOUND, viewModel.uiState.value.loadError)
         viewModel.saveTask()
         advanceUntilIdle()
 
         assertTrue(repository.insertedTasks.isEmpty())
         assertTrue(repository.updatedTasks.isEmpty())
         assertFalse(viewModel.uiState.value.saveCompleted)
+    }
+
+    @Test
+    fun loadFailure_isDifferentFromMissingTask() = runTest(testDispatcher) {
+        val repository = FakeTaskRepository(
+            getFailure = IllegalStateException("Database unavailable"),
+        )
+        val viewModel = createViewModel(repository, taskId = 42)
+        advanceUntilIdle()
+
+        assertEquals(TaskEditorMode.EDIT, viewModel.uiState.value.mode)
+        assertEquals(TaskEditorLoadError.LOAD_FAILED, viewModel.uiState.value.loadError)
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun invalidTaskId_isAnErrorInsteadOfCreateMode() {
+        val viewModel = createViewModel(
+            repository = FakeTaskRepository(),
+            taskIdArgument = "not-a-number",
+        )
+
+        assertEquals(TaskEditorMode.EDIT, viewModel.uiState.value.mode)
+        assertEquals(TaskEditorLoadError.INVALID_TASK_ID, viewModel.uiState.value.loadError)
+        assertFalse(viewModel.uiState.value.isLoading)
     }
 
     @Test
@@ -469,11 +504,12 @@ class TaskEditorViewModelTest {
     private fun createViewModel(
         repository: TaskRepository,
         taskId: Long? = null,
+        taskIdArgument: String? = taskId?.toString(),
     ) = TaskEditorViewModel(
         taskRepository = repository,
         currentTimeMillis = { timestamp },
         todayEpochDay = todayEpochDay,
-        taskId = taskId,
+        taskIdArgument = taskIdArgument,
     )
 
     private fun existingTask(
@@ -497,6 +533,7 @@ private class FakeTaskRepository(
     private val updateFailure: Exception? = null,
     private val deleteGate: CompletableDeferred<Unit>? = null,
     private val deleteFailure: Exception? = null,
+    private val getFailure: Exception? = null,
 ) : TaskRepository {
     private val tasks = MutableStateFlow(initialTasks)
     val insertedTasks = mutableListOf<TaskEntity>()
@@ -505,8 +542,10 @@ private class FakeTaskRepository(
 
     override fun observeTasks(): Flow<List<TaskEntity>> = tasks
 
-    override suspend fun getTask(id: Long): TaskEntity? =
-        tasks.value.firstOrNull { task -> task.id == id }
+    override suspend fun getTask(id: Long): TaskEntity? {
+        getFailure?.let { throw it }
+        return tasks.value.firstOrNull { task -> task.id == id }
+    }
 
     override suspend fun insertTask(task: TaskEntity): Long {
         insertedTasks += task

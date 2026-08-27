@@ -22,7 +22,7 @@ class TaskEditorViewModel internal constructor(
     private val taskRepository: TaskRepository,
     private val currentTimeMillis: () -> Long,
     todayEpochDay: Long,
-    private val taskId: Long?,
+    taskIdArgument: String?,
 ) : ViewModel() {
     @Inject
     constructor(
@@ -32,17 +32,22 @@ class TaskEditorViewModel internal constructor(
         taskRepository = taskRepository,
         currentTimeMillis = System::currentTimeMillis,
         todayEpochDay = LocalDate.now().toEpochDay(),
-        taskId = savedStateHandle
-            .get<String>(TaskFlowDestination.TASK_ID_ARGUMENT)
-            ?.toLongOrNull(),
+        taskIdArgument = savedStateHandle[TaskFlowDestination.TASK_ID_ARGUMENT],
     )
 
+    private val taskId = taskIdArgument?.toLongOrNull()
+    private val hasInvalidTaskId = taskIdArgument != null && taskId == null
     private var originalTask: TaskEntity? = null
     private val _uiState = MutableStateFlow(
         TaskEditorUiState(
-            mode = if (taskId == null) TaskEditorMode.CREATE else TaskEditorMode.EDIT,
+            mode = if (taskIdArgument == null) TaskEditorMode.CREATE else TaskEditorMode.EDIT,
             dueDateEpochDay = todayEpochDay,
             isLoading = taskId != null,
+            loadError = if (hasInvalidTaskId) {
+                TaskEditorLoadError.INVALID_TASK_ID
+            } else {
+                null
+            },
         ),
     )
     val uiState: StateFlow<TaskEditorUiState> = _uiState.asStateFlow()
@@ -83,9 +88,17 @@ class TaskEditorViewModel internal constructor(
         }
     }
 
+    fun onDueTimeCleared() {
+        _uiState.update { state ->
+            state.copy(dueTimeMinutes = null, saveError = false)
+        }
+    }
+
     fun saveTask() {
         val state = _uiState.value
-        if (state.isLoading || state.loadError || state.isSaving || state.isDeleting) return
+        if (state.isLoading || state.loadError != null || state.isSaving || state.isDeleting) {
+            return
+        }
 
         val title = state.title.trim()
         if (title.isEmpty()) {
@@ -144,7 +157,7 @@ class TaskEditorViewModel internal constructor(
         if (
             state.mode != TaskEditorMode.EDIT ||
             state.isLoading ||
-            state.loadError ||
+            state.loadError != null ||
             state.isSaving ||
             state.isDeleting ||
             originalTask == null
@@ -211,7 +224,10 @@ class TaskEditorViewModel internal constructor(
                 val task = taskRepository.getTask(taskId)
                 if (task == null) {
                     _uiState.update { state ->
-                        state.copy(isLoading = false, loadError = true)
+                        state.copy(
+                            isLoading = false,
+                            loadError = TaskEditorLoadError.NOT_FOUND,
+                        )
                     }
                     return@launch
                 }
@@ -231,7 +247,10 @@ class TaskEditorViewModel internal constructor(
                 throw exception
             } catch (_: Exception) {
                 _uiState.update { state ->
-                    state.copy(isLoading = false, loadError = true)
+                    state.copy(
+                        isLoading = false,
+                        loadError = TaskEditorLoadError.LOAD_FAILED,
+                    )
                 }
             }
         }

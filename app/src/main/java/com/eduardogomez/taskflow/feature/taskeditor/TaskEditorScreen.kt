@@ -120,7 +120,8 @@ fun TaskEditorRoute(
         onPriorityChanged = viewModel::onPriorityChanged,
         onDueDateChanged = viewModel::onDueDateChanged,
         onDueTimeChanged = viewModel::onDueTimeChanged,
-        onCreateTask = viewModel::saveTask,
+        onDueTimeCleared = viewModel::onDueTimeCleared,
+        onSaveTask = viewModel::saveTask,
         onDeleteRequested = viewModel::onDeleteRequested,
         onDeleteDismissed = viewModel::onDeleteDismissed,
         onDeleteConfirmed = viewModel::onDeleteConfirmed,
@@ -138,7 +139,8 @@ fun TaskEditorScreen(
     onPriorityChanged: (TaskPriority) -> Unit,
     onDueDateChanged: (Long) -> Unit,
     onDueTimeChanged: (Int) -> Unit,
-    onCreateTask: () -> Unit,
+    onDueTimeCleared: () -> Unit,
+    onSaveTask: () -> Unit,
     onDeleteRequested: () -> Unit,
     onDeleteDismissed: () -> Unit,
     onDeleteConfirmed: () -> Unit,
@@ -212,7 +214,7 @@ fun TaskEditorScreen(
                     CircularProgressIndicator()
                 }
             }
-            uiState.loadError -> {
+            uiState.loadError != null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -220,7 +222,13 @@ fun TaskEditorScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = stringResource(R.string.task_load_error),
+                        text = stringResource(
+                            if (uiState.loadError == TaskEditorLoadError.NOT_FOUND) {
+                                R.string.task_load_error
+                            } else {
+                                R.string.task_load_failed
+                            },
+                        ),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -299,6 +307,17 @@ fun TaskEditorScreen(
                         showTimePicker = true
                     },
                 )
+                if (uiState.dueTimeMinutes != null) {
+                    TextButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            onDueTimeCleared()
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
+                        Text(text = stringResource(R.string.clear_time))
+                    }
+                }
             }
 
             Spacer(modifier = focusClearingSpacerModifier)
@@ -308,7 +327,7 @@ fun TaskEditorScreen(
                     if (uiState.title.isNotBlank()) {
                         focusManager.clearFocus()
                     }
-                    onCreateTask()
+                    onSaveTask()
                 },
                 enabled = !uiState.isSaving && !uiState.isDeleting,
                 modifier = Modifier

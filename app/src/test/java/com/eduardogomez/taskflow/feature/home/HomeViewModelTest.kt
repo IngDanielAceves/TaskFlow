@@ -4,6 +4,7 @@ import com.eduardogomez.taskflow.data.local.TaskEntity
 import com.eduardogomez.taskflow.data.local.TaskPriority
 import com.eduardogomez.taskflow.data.repository.TaskRepository
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -142,6 +143,44 @@ class HomeViewModelTest {
             assertEquals(0, state.pendingCount)
         }
 
+    @Test
+    fun failedCompletion_exposesErrorAndKeepsHomeUsable() = runTest(testDispatcher) {
+        val repository = FakeTaskRepository(
+            initialTasks = listOf(task(id = 1)),
+            completionFailure = IllegalStateException("Database unavailable"),
+        )
+        val viewModel = HomeViewModel(repository)
+        viewModel.awaitLoadedState()
+
+        viewModel.setTaskCompleted(id = 1, isCompleted = true)
+        advanceUntilIdle()
+        val state = viewModel.uiState.first { currentState -> currentState.completionError }
+
+        assertEquals(listOf(1L to true), repository.completionUpdates)
+        assertFalse(state.tasks.single().isCompleted)
+
+        viewModel.onCompletionErrorHandled()
+        val handledState = viewModel.uiState.first { currentState ->
+            !currentState.completionError
+        }
+        assertFalse(handledState.completionError)
+    }
+
+    @Test
+    fun cancelledCompletion_doesNotExposeError() = runTest(testDispatcher) {
+        val repository = FakeTaskRepository(
+            initialTasks = listOf(task(id = 1)),
+            completionFailure = CancellationException("Cancelled"),
+        )
+        val viewModel = HomeViewModel(repository)
+        viewModel.awaitLoadedState()
+
+        viewModel.setTaskCompleted(id = 1, isCompleted = true)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.completionError)
+    }
+
     private suspend fun HomeViewModel.awaitLoadedState(): HomeUiState =
         uiState.first { state -> !state.isLoading }
 
@@ -162,7 +201,10 @@ class HomeViewModelTest {
     )
 }
 
-private class FakeTaskRepository(initialTasks: List<TaskEntity>) : TaskRepository {
+private class FakeTaskRepository(
+    initialTasks: List<TaskEntity>,
+    private val completionFailure: Exception? = null,
+) : TaskRepository {
     private val tasks = MutableStateFlow(initialTasks)
     val completionUpdates = mutableListOf<Pair<Long, Boolean>>()
 
@@ -188,6 +230,7 @@ private class FakeTaskRepository(initialTasks: List<TaskEntity>) : TaskRepositor
 
     override suspend fun setTaskCompleted(id: Long, isCompleted: Boolean) {
         completionUpdates += id to isCompleted
+        completionFailure?.let { throw it }
         tasks.value = tasks.value.map { task ->
             if (task.id == id) task.copy(isCompleted = isCompleted) else task
         }

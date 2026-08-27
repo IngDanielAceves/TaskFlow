@@ -10,6 +10,7 @@ data class HomeUiState(
     val pendingCount: Int = 0,
     val hasTasks: Boolean = false,
     val isLoading: Boolean = true,
+    val completionError: Boolean = false,
 )
 
 data class HomeTaskUiModel(

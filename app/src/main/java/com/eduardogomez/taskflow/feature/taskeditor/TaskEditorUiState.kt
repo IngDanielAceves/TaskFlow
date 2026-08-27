@@ -12,7 +12,7 @@ data class TaskEditorUiState(
     val dueTimeMinutes: Int? = null,
     val titleError: Boolean = false,
     val isLoading: Boolean = false,
-    val loadError: Boolean = false,
+    val loadError: TaskEditorLoadError? = null,
     val isSaving: Boolean = false,
     val saveCompleted: Boolean = false,
     val saveError: Boolean = false,
@@ -25,4 +25,10 @@ data class TaskEditorUiState(
 enum class TaskEditorMode {
     CREATE,
     EDIT,
+}
+
+enum class TaskEditorLoadError {
+    NOT_FOUND,
+    LOAD_FAILED,
+    INVALID_TASK_ID,
 }
