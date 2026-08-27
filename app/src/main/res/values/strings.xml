@@ -32,6 +32,11 @@
     <string name="save_changes">Save Changes</string>
     <string name="task_save_error">Unable to save task. Try again.</string>
     <string name="task_load_error">Task not found.</string>
+    <string name="delete_task">Delete Task</string>
+    <string name="delete_task_dialog_title">Delete task?</string>
+    <string name="delete_task_dialog_message">This action cannot be undone.</string>
+    <string name="task_delete_error">Unable to delete task. Try again.</string>
+    <string name="action_delete">Delete</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
 </resources>

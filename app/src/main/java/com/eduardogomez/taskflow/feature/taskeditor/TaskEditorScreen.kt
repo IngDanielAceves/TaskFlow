@@ -106,6 +106,13 @@ fun TaskEditorRoute(
         }
     }
 
+    LaunchedEffect(uiState.deleteCompleted) {
+        if (uiState.deleteCompleted) {
+            viewModel.onDeleteCompletedHandled()
+            onNavigateBack()
+        }
+    }
+
     TaskEditorScreen(
         uiState = uiState,
         onTitleChanged = viewModel::onTitleChanged,
@@ -114,6 +121,9 @@ fun TaskEditorRoute(
         onDueDateChanged = viewModel::onDueDateChanged,
         onDueTimeChanged = viewModel::onDueTimeChanged,
         onCreateTask = viewModel::saveTask,
+        onDeleteRequested = viewModel::onDeleteRequested,
+        onDeleteDismissed = viewModel::onDeleteDismissed,
+        onDeleteConfirmed = viewModel::onDeleteConfirmed,
         onNavigateBack = onNavigateBack,
         modifier = modifier,
     )
@@ -129,6 +139,9 @@ fun TaskEditorScreen(
     onDueDateChanged: (Long) -> Unit,
     onDueTimeChanged: (Int) -> Unit,
     onCreateTask: () -> Unit,
+    onDeleteRequested: () -> Unit,
+    onDeleteDismissed: () -> Unit,
+    onDeleteConfirmed: () -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -297,7 +310,7 @@ fun TaskEditorScreen(
                     }
                     onCreateTask()
                 },
-                enabled = !uiState.isSaving,
+                enabled = !uiState.isSaving && !uiState.isDeleting,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 52.dp),
@@ -321,8 +334,52 @@ fun TaskEditorScreen(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
+            if (uiState.mode == TaskEditorMode.EDIT) {
+                TextButton(
+                    onClick = onDeleteRequested,
+                    enabled = !uiState.isSaving && !uiState.isDeleting,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .heightIn(min = 48.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.delete_task),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                if (uiState.deleteError) {
+                    Text(
+                        text = stringResource(R.string.task_delete_error),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
         }
         }
+    }
+
+    if (uiState.isDeleteConfirmationVisible) {
+        AlertDialog(
+            onDismissRequest = onDeleteDismissed,
+            title = { Text(text = stringResource(R.string.delete_task_dialog_title)) },
+            text = { Text(text = stringResource(R.string.delete_task_dialog_message)) },
+            confirmButton = {
+                TextButton(onClick = onDeleteConfirmed) {
+                    Text(
+                        text = stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDeleteDismissed) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 
     if (showDatePicker) {

@@ -50,6 +50,9 @@ class TaskEditorViewModelTest {
         assertNull(state.dueTimeMinutes)
         assertFalse(state.titleError)
         assertFalse(state.isSaving)
+        assertFalse(state.isDeleteConfirmationVisible)
+        assertFalse(state.isDeleting)
+        assertFalse(state.deleteCompleted)
     }
 
     @Test
@@ -341,6 +344,128 @@ class TaskEditorViewModelTest {
         assertTrue(repository.updatedTasks.isEmpty())
     }
 
+    @Test
+    fun deleteIsUnavailableInCreateMode() = runTest(testDispatcher) {
+        val repository = FakeTaskRepository()
+        val viewModel = createViewModel(repository)
+
+        viewModel.onDeleteRequested()
+        viewModel.onDeleteConfirmed()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isDeleteConfirmationVisible)
+        assertTrue(repository.deletedTasks.isEmpty())
+    }
+
+    @Test
+    fun deleteRequestInEditMode_showsConfirmation() = runTest(testDispatcher) {
+        val task = existingTask()
+        val viewModel = createViewModel(
+            repository = FakeTaskRepository(initialTasks = listOf(task)),
+            taskId = task.id,
+        )
+        advanceUntilIdle()
+
+        viewModel.onDeleteRequested()
+
+        assertTrue(viewModel.uiState.value.isDeleteConfirmationVisible)
+    }
+
+    @Test
+    fun dismissDelete_hidesConfirmationWithoutDeleting() = runTest(testDispatcher) {
+        val task = existingTask()
+        val repository = FakeTaskRepository(initialTasks = listOf(task))
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.onDeleteRequested()
+        viewModel.onDeleteDismissed()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isDeleteConfirmationVisible)
+        assertTrue(repository.deletedTasks.isEmpty())
+    }
+
+    @Test
+    fun confirmDelete_deletesOriginalTask() = runTest(testDispatcher) {
+        val task = existingTask(isCompleted = true)
+        val repository = FakeTaskRepository(initialTasks = listOf(task))
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.onDeleteRequested()
+        viewModel.onDeleteConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(task, repository.deletedTasks.single())
+    }
+
+    @Test
+    fun successfulDelete_signalsNavigation() = runTest(testDispatcher) {
+        val task = existingTask()
+        val viewModel = createViewModel(
+            repository = FakeTaskRepository(initialTasks = listOf(task)),
+            taskId = task.id,
+        )
+        advanceUntilIdle()
+
+        viewModel.onDeleteRequested()
+        viewModel.onDeleteConfirmed()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.deleteCompleted)
+        viewModel.onDeleteCompletedHandled()
+        assertFalse(viewModel.uiState.value.deleteCompleted)
+    }
+
+    @Test
+    fun failedDelete_doesNotSignalNavigationAndAllowsRetry() = runTest(testDispatcher) {
+        val task = existingTask()
+        val repository = FakeTaskRepository(
+            initialTasks = listOf(task),
+            deleteFailure = IllegalStateException("Database unavailable"),
+        )
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.onDeleteRequested()
+        viewModel.onDeleteConfirmed()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.deleteCompleted)
+        assertFalse(viewModel.uiState.value.isDeleting)
+        assertTrue(viewModel.uiState.value.deleteError)
+
+        viewModel.onDeleteRequested()
+        assertTrue(viewModel.uiState.value.isDeleteConfirmationVisible)
+    }
+
+    @Test
+    fun repeatedDeleteConfirmation_deletesOnlyOnce() = runTest(testDispatcher) {
+        val task = existingTask()
+        val deleteGate = CompletableDeferred<Unit>()
+        val repository = FakeTaskRepository(
+            initialTasks = listOf(task),
+            deleteGate = deleteGate,
+        )
+        val viewModel = createViewModel(repository, task.id)
+        advanceUntilIdle()
+
+        viewModel.onDeleteRequested()
+        viewModel.onDeleteConfirmed()
+        viewModel.onDeleteConfirmed()
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isDeleting)
+        assertEquals(1, repository.deletedTasks.size)
+
+        deleteGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.deletedTasks.size)
+        assertTrue(viewModel.uiState.value.deleteCompleted)
+    }
+
     private fun createViewModel(
         repository: TaskRepository,
         taskId: Long? = null,
@@ -370,10 +495,13 @@ private class FakeTaskRepository(
     private val insertGate: CompletableDeferred<Unit>? = null,
     private val insertFailure: Exception? = null,
     private val updateFailure: Exception? = null,
+    private val deleteGate: CompletableDeferred<Unit>? = null,
+    private val deleteFailure: Exception? = null,
 ) : TaskRepository {
     private val tasks = MutableStateFlow(initialTasks)
     val insertedTasks = mutableListOf<TaskEntity>()
     val updatedTasks = mutableListOf<TaskEntity>()
+    val deletedTasks = mutableListOf<TaskEntity>()
 
     override fun observeTasks(): Flow<List<TaskEntity>> = tasks
 
@@ -392,7 +520,11 @@ private class FakeTaskRepository(
         updateFailure?.let { throw it }
     }
 
-    override suspend fun deleteTask(task: TaskEntity) = Unit
+    override suspend fun deleteTask(task: TaskEntity) {
+        deletedTasks += task
+        deleteGate?.await()
+        deleteFailure?.let { throw it }
+    }
 
     override suspend fun setTaskCompleted(id: Long, isCompleted: Boolean) = Unit
 }

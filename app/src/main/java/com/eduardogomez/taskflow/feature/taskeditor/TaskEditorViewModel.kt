@@ -85,7 +85,7 @@ class TaskEditorViewModel internal constructor(
 
     fun saveTask() {
         val state = _uiState.value
-        if (state.isLoading || state.loadError || state.isSaving) return
+        if (state.isLoading || state.loadError || state.isSaving || state.isDeleting) return
 
         val title = state.title.trim()
         if (title.isEmpty()) {
@@ -137,6 +137,72 @@ class TaskEditorViewModel internal constructor(
 
     fun onSaveCompletedHandled() {
         _uiState.update { state -> state.copy(saveCompleted = false) }
+    }
+
+    fun onDeleteRequested() {
+        val state = _uiState.value
+        if (
+            state.mode != TaskEditorMode.EDIT ||
+            state.isLoading ||
+            state.loadError ||
+            state.isSaving ||
+            state.isDeleting ||
+            originalTask == null
+        ) {
+            return
+        }
+
+        _uiState.update { currentState ->
+            currentState.copy(
+                isDeleteConfirmationVisible = true,
+                deleteError = false,
+            )
+        }
+    }
+
+    fun onDeleteDismissed() {
+        if (_uiState.value.isDeleting) return
+
+        _uiState.update { state -> state.copy(isDeleteConfirmationVisible = false) }
+    }
+
+    fun onDeleteConfirmed() {
+        val state = _uiState.value
+        val task = originalTask
+        if (
+            state.mode != TaskEditorMode.EDIT ||
+            !state.isDeleteConfirmationVisible ||
+            state.isDeleting ||
+            task == null
+        ) {
+            return
+        }
+
+        _uiState.update { currentState ->
+            currentState.copy(
+                isDeleteConfirmationVisible = false,
+                isDeleting = true,
+                deleteError = false,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                taskRepository.deleteTask(task)
+                _uiState.update { currentState ->
+                    currentState.copy(isDeleting = false, deleteCompleted = true)
+                }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (_: Exception) {
+                _uiState.update { currentState ->
+                    currentState.copy(isDeleting = false, deleteError = true)
+                }
+            }
+        }
+    }
+
+    fun onDeleteCompletedHandled() {
+        _uiState.update { state -> state.copy(deleteCompleted = false) }
     }
 
     private fun loadTask(taskId: Long, todayEpochDay: Long) {
