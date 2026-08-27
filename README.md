@@ -11,10 +11,10 @@
 📱 Preview
 
 <p align="center">
-  <img src="docs/screenshots/HOME.png" width="215" alt="TaskFlow Home"/>
-  <img src="docs/screenshots/new-task.png" width="215" alt="Create Task"/>
-  <img src="docs/screenshots/edit-task.png" width="215" alt="Edit Task"/>
-  <img src="docs/screenshots/dark-mode.png" width="215" alt="TaskFlow Dark Mode"/>
+  <img src="docs/screenshots/HOME.png" width="185" alt="TaskFlow Home"/>
+  <img src="docs/screenshots/new-task.png" width="185" alt="Create Task"/>
+  <img src="docs/screenshots/edit-task.png" width="185" alt="Edit Task"/>
+  <img src="docs/screenshots/dark-mode.png" width="185" alt="TaskFlow Dark Mode"/>
 </p>
 
 ✨ Features
